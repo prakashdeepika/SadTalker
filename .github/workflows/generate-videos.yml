@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "inputs/images/**"
-      - "inputs/audio/**"
+      - "input-image-audio/**"
 
 permissions:
   contents: read
@@ -52,19 +51,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          audio="inputs/audio/clip.mp3"
+          audio="input-image-audio/voiceover.mp3"
           if [[ ! -f "$audio" ]]; then
             echo "::error::Missing shared audio file: $audio"
             exit 1
           fi
 
           mapfile -d '' images < <(
-            find inputs/images -maxdepth 1 -type f \
+            find input-image-audio -maxdepth 1 -type f \
               \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
               -print0 | sort -z
           )
           if (( ${#images[@]} == 0 )); then
-            echo "::error::No images found in inputs/images (supported: PNG, JPG, JPEG, WEBP)."
+            echo "::error::No images found in input-image-audio (supported: PNG, JPG, JPEG, WEBP)."
             exit 1
           fi
 
