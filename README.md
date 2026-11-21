@@ -218,6 +218,20 @@ You can also start it more easily:
 
 ### CLI usage
 
+##### GitHub Actions pipeline:
+The `Generate talking-head videos` workflow renders each image in `inputs/images/` as a separate MP4, using the shared audio file `inputs/audio/clip.mp3`. Add your image files (PNG, JPG, JPEG, or WEBP) and MP3 to those paths, then push them to GitHub. The workflow also has a manual `workflow_dispatch` trigger in the repository's Actions tab. Download the finished MP4 files from the `sadtalker-videos` artifact on the completed run; artifacts are retained for 7 days.
+
+This workflow uses a standard GitHub-hosted Ubuntu runner and CPU-only PyTorch; it does not require or provide a GPU. Rendering can be slow, especially for multiple images or long audio. Because this repository is public, files committed under `inputs/` and generated workflow artifacts may be accessible to repository visitors. Only commit media you have permission to publish. SadTalker generates lip-sync, facial expression, and head motion; it does not create multiple movie scenes, cinematic camera movement, or full-body choreography.
+
+##### Local generation pipeline:
+The helper script below takes a source image (or video) and audio file, runs SadTalker, and saves the generated video at the path you choose. Download the required model checkpoints first, as described in [Download Models](#2-download-models).
+
+```bash
+python scripts/generate_video.py --source-image examples/source_image/full_body_1.png --audio examples/driven_audio/bus_chinese.wav --output results/talking_head.mp4
+```
+
+For example, add `--still --preprocess full --enhancer gfpgan` for full-image processing with reduced head movement and face enhancement. Use `--cpu` to force CPU inference, and `--overwrite` to replace an existing output file. Run `python scripts/generate_video.py --help` for all options.
+
 ##### Animating a portrait image from default config:
 ```bash
 python inference.py --driven_audio <audio.wav> \

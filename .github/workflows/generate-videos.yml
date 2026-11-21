@@ -1,0 +1,94 @@
+name: Generate talking-head videos
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "inputs/images/**"
+      - "inputs/audio/**"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg libgl1
+
+      - name: Install CPU PyTorch and SadTalker dependencies
+        run: |
+          python -m pip install --upgrade "pip<25"
+          python -m pip install \
+            torch==1.12.1+cpu \
+            torchvision==0.13.1+cpu \
+            torchaudio==0.12.1 \
+            --extra-index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements.txt
+
+      - name: Download SadTalker checkpoints
+        run: |
+          mkdir -p checkpoints
+          curl --fail --location --retry 3 \
+            https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/mapping_00229-model.pth.tar \
+            --output checkpoints/mapping_00229-model.pth.tar
+          curl --fail --location --retry 3 \
+            https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/SadTalker_V0.0.2_256.safetensors \
+            --output checkpoints/SadTalker_V0.0.2_256.safetensors
+
+      - name: Validate inputs and generate one video per image
+        shell: bash
+        run: |
+          set -euo pipefail
+          audio="inputs/audio/clip.mp3"
+          if [[ ! -f "$audio" ]]; then
+            echo "::error::Missing shared audio file: $audio"
+            exit 1
+          fi
+
+          mapfile -d '' images < <(
+            find inputs/images -maxdepth 1 -type f \
+              \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+              -print0 | sort -z
+          )
+          if (( ${#images[@]} == 0 )); then
+            echo "::error::No images found in inputs/images (supported: PNG, JPG, JPEG, WEBP)."
+            exit 1
+          fi
+
+          mkdir -p results
+          for index in "${!images[@]}"; do
+            image="${images[$index]}"
+            filename="$(basename "$image")"
+            name="${filename%.*}"
+            output="$(printf 'results/%03d_%s.mp4' "$((index + 1))" "$name")"
+            echo "Generating $output from $filename"
+            python scripts/generate_video.py \
+              --source-image "$image" \
+              --audio "$audio" \
+              --output "$output" \
+              --checkpoint-dir checkpoints \
+              --preprocess crop \
+              --expression-scale 1.0 \
+              --cpu
+          done
+
+      - name: Upload generated videos
+        uses: actions/upload-artifact@v4
+        with:
+          name: sadtalker-videos
+          path: results/*.mp4
+          if-no-files-found: error
+          retention-days: 7
