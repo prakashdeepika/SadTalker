@@ -41,11 +41,27 @@ jobs:
         run: |
           mkdir -p checkpoints
           curl --fail --location --retry 3 \
-            https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/mapping_00229-model.pth.tar \
-            --output checkpoints/mapping_00229-model.pth.tar
+            https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/mapping_00109-model.pth.tar \
+            --output checkpoints/mapping_00109-model.pth.tar
           curl --fail --location --retry 3 \
-            https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/SadTalker_V0.0.2_256.safetensors \
-            --output checkpoints/SadTalker_V0.0.2_256.safetensors
+            https://github.com/OpenTalker/SadTalker/releases/download/v0.0.2-rc/SadTalker_V0.0.2_512.safetensors \
+            --output checkpoints/SadTalker_V0.0.2_512.safetensors
+
+      - name: Download GFPGAN face enhancement weights
+        run: |
+          mkdir -p gfpgan/weights
+          curl --fail --location --retry 3 \
+            https://github.com/xinntao/facexlib/releases/download/v0.1.0/alignment_WFLW_4HG.pth \
+            --output gfpgan/weights/alignment_WFLW_4HG.pth
+          curl --fail --location --retry 3 \
+            https://github.com/xinntao/facexlib/releases/download/v0.1.0/detection_Resnet50_Final.pth \
+            --output gfpgan/weights/detection_Resnet50_Final.pth
+          curl --fail --location --retry 3 \
+            https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth \
+            --output gfpgan/weights/GFPGANv1.4.pth
+          curl --fail --location --retry 3 \
+            https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth \
+            --output gfpgan/weights/parsing_parsenet.pth
 
       - name: Validate inputs and generate one video per image
         shell: bash
@@ -54,6 +70,15 @@ jobs:
           audio="input-image-audio/voiceover.mp3"
           if [[ ! -f "$audio" ]]; then
             echo "::error::Missing shared audio file: $audio"
+            exit 1
+          fi
+
+          mkdir -p work
+          normalized_audio="work/voiceover-16k-mono.wav"
+          ffmpeg -hide_banner -loglevel error -y \
+            -i "$audio" -vn -ac 1 -ar 16000 -c:a pcm_s16le "$normalized_audio"
+          if [[ ! -s "$normalized_audio" ]]; then
+            echo "::error::Could not decode the MP3 audio file: $audio"
             exit 1
           fi
 
@@ -73,15 +98,39 @@ jobs:
             filename="$(basename "$image")"
             name="${filename%.*}"
             output="$(printf 'results/%03d_%s.mp4' "$((index + 1))" "$name")"
+            intermediate="$(printf 'work/%03d_%s_sadtalker.mp4' "$((index + 1))" "$name")"
             echo "Generating $output from $filename"
             python scripts/generate_video.py \
               --source-image "$image" \
-              --audio "$audio" \
-              --output "$output" \
+              --audio "$normalized_audio" \
+              --output "$intermediate" \
               --checkpoint-dir checkpoints \
-              --preprocess crop \
+              --preprocess full \
+              --still \
+              --size 512 \
+              --enhancer gfpgan \
               --expression-scale 1.0 \
               --cpu
+
+            ffmpeg -hide_banner -loglevel error -y \
+              -i "$intermediate" -i "$audio" \
+              -map 0:v:0 -map 1:a:0 \
+              -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1" \
+              -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -r 25 \
+              -c:a aac -b:a 192k -shortest -movflags +faststart \
+              "$output"
+
+            dimensions="$(ffprobe -v error -select_streams v:0 \
+              -show_entries stream=width,height -of csv=s=x:p=0 "$output")"
+            if [[ "$dimensions" != "1920x1080" ]]; then
+              echo "::error::Expected 1920x1080 output, got $dimensions for $output"
+              exit 1
+            fi
+            if ! ffprobe -v error -select_streams a:0 \
+              -show_entries stream=codec_name -of csv=p=0 "$output" | grep -q .; then
+              echo "::error::No audio stream found in $output"
+              exit 1
+            fi
           done
 
       - name: Upload generated videos
