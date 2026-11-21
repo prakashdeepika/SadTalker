@@ -226,6 +226,9 @@ This workflow uses a standard GitHub-hosted Ubuntu runner and CPU-only PyTorch; 
 ##### Free Colab GPU:
 For an interactive GPU run, open [colab_sadtalker.ipynb](./colab_sadtalker.ipynb) in Google Colab, select a GPU runtime, and run the cells in order. Colab free GPU availability is not guaranteed, sessions may terminate, and the notebook requires manually uploading your image and audio into Google's runtime. Download the MP4 before the session ends. This improves SadTalker's face/head rendering speed but does not add body or hand motion.
 
+##### Experimental image-to-video motion:
+The [Wan motion notebook](./colab_wan_motion.ipynb) experiments with Wan 2.1 I2V to generate a short motion clip from an uploaded still and text prompt, then adds the uploaded audio as a soundtrack. It does **not** lip-sync that audio. The 14B model may exceed the memory or session limits of a free Colab GPU; results and identity consistency are not guaranteed. The notebook is separate from the SadTalker pipeline.
+
 ##### Local generation pipeline:
 The helper script below takes a source image (or video) and audio file, runs SadTalker, and saves the generated video at the path you choose. Download the required model checkpoints first, as described in [Download Models](#2-download-models).
 
