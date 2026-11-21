@@ -223,6 +223,9 @@ The `Generate talking-head videos` workflow renders each image in `input-image-a
 
 This workflow uses a standard GitHub-hosted Ubuntu runner and CPU-only PyTorch; it does not require or provide a GPU. Rendering can be slow, especially for multiple images or long audio. Because this repository is public, files committed under `input-image-audio/` and generated workflow artifacts may be accessible to repository visitors. Only commit media you have permission to publish. SadTalker generates lip-sync, facial expression, and head motion; it does not create multiple movie scenes, cinematic camera movement, or full-body choreography.
 
+##### Free Colab GPU:
+For an interactive GPU run, open [colab_sadtalker.ipynb](./colab_sadtalker.ipynb) in Google Colab, select a GPU runtime, and run the cells in order. Colab free GPU availability is not guaranteed, sessions may terminate, and the notebook requires manually uploading your image and audio into Google's runtime. Download the MP4 before the session ends. This improves SadTalker's face/head rendering speed but does not add body or hand motion.
+
 ##### Local generation pipeline:
 The helper script below takes a source image (or video) and audio file, runs SadTalker, and saves the generated video at the path you choose. Download the required model checkpoints first, as described in [Download Models](#2-download-models).
 
