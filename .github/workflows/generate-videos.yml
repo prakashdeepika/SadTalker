@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "input-image-audio/**"
+      - ".github/workflows/generate-videos.yml"
 
 permissions:
   contents: read
