@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          audio="input-image-audio/voiceover.mp3"
+          audio="input-image-audio/scene-04_rudregowda.mp3"
           if [[ ! -f "$audio" ]]; then
             echo "::error::Missing shared audio file: $audio"
             exit 1
@@ -107,10 +107,9 @@ jobs:
               --output "$intermediate" \
               --checkpoint-dir checkpoints \
               --preprocess full \
-              --still \
               --size 512 \
               --enhancer gfpgan \
-              --expression-scale 1.0 \
+              --expression-scale 1.2 \
               --cpu
 
             ffmpeg -hide_banner -loglevel error -y \
