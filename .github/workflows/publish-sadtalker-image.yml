@@ -1,0 +1,47 @@
+name: Publish SadTalker container
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/github-actions-video-pipeline
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - requirements.txt
+      - .github/workflows/publish-sadtalker-image.yml
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish SadTalker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/prakashdeepika/sadtalker-cpu:latest
+            ghcr.io/prakashdeepika/sadtalker-cpu:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/prakashdeepika/SadTalker
+          cache-from: type=gha,scope=sadtalker-cpu
+          cache-to: type=gha,mode=max,scope=sadtalker-cpu
