@@ -2,6 +2,17 @@ name: Generate talking-head videos
 
 on:
   workflow_dispatch:
+    inputs:
+      source_image:
+        description: Image path in input-image-audio/
+        type: string
+        required: true
+        default: input-image-audio/image_026443.png
+      audio_file:
+        description: MP3 audio path in input-image-audio/
+        type: string
+        required: true
+        default: input-image-audio/scene-04_rudregowda.mp3
   push:
     paths:
       - "input-image-audio/**"
@@ -66,9 +77,16 @@ jobs:
 
       - name: Validate inputs and generate one video per image
         shell: bash
+        env:
+          SOURCE_IMAGE: ${{ inputs.source_image }}
+          AUDIO_FILE: ${{ inputs.audio_file }}
         run: |
           set -euo pipefail
-          audio="input-image-audio/scene-04_rudregowda.mp3"
+          audio="${AUDIO_FILE:-input-image-audio/scene-04_rudregowda.mp3}"
+          if [[ "$audio" != input-image-audio/* || "$audio" == *".."* || "${audio,,}" != *.mp3 ]]; then
+            echo "::error::Audio must be an MP3 path inside input-image-audio/."
+            exit 1
+          fi
           if [[ ! -f "$audio" ]]; then
             echo "::error::Missing shared audio file: $audio"
             exit 1
@@ -83,11 +101,31 @@ jobs:
             exit 1
           fi
 
-          mapfile -d '' images < <(
-            find input-image-audio -maxdepth 1 -type f \
-              \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
-              -print0 | sort -z
-          )
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            image="$SOURCE_IMAGE"
+            if [[ "$image" != input-image-audio/* || "$image" == *".."* ]]; then
+              echo "::error::Source image must be a path inside input-image-audio/."
+              exit 1
+            fi
+            case "${image,,}" in
+              *.png|*.jpg|*.jpeg|*.webp) ;;
+              *)
+                echo "::error::Unsupported image. Use PNG, JPG, JPEG, or WEBP."
+                exit 1
+                ;;
+            esac
+            if [[ ! -f "$image" ]]; then
+              echo "::error::Source image not found: $image"
+              exit 1
+            fi
+            images=("$image")
+          else
+            mapfile -d '' images < <(
+              find input-image-audio -maxdepth 1 -type f \
+                \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
+                -print0 | sort -z
+            )
+          fi
           if (( ${#images[@]} == 0 )); then
             echo "::error::No images found in input-image-audio (supported: PNG, JPG, JPEG, WEBP)."
             exit 1
